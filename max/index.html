@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" type="text/css" />
+    <script src="Config.js"></script>
+    <script src="Controle.js"></script>
+    <script src="Tiro.js"></script>
+    <script src="Jogador.js"></script>
+    <script src="Inimigo.js"></script>
+    <script src="Perri.js"></script>
+    <script src="Frame.js"></script>
+    <script src="Cenario.js"></script>
+    <script src="dialogos.js"></script>
+    <title>Ivaldo's fight</title>
+  </head>
+
+  <body>
+    <div class="pagina">
+      <canvas width="1080" height="540"></canvas>
+    </div>
+
+    <script>
+      const isDirectionRight = (keyCode) => keyCode == 68 || keyCode == 39;
+      const isDirectionLeft = (keyCode) => keyCode == 37 || keyCode == 65;
+      const isDirectionUp = (keyCode) => keyCode == 87 || keyCode == 38;
+      const isDirectionDown = (keyCode) => keyCode == 40 || keyCode == 83;
+      const canvas = document.querySelector("canvas");
+      const ctx = canvas.getContext("2d");
+      const config = new Config();
+
+      let atirando = [];
+      const max = new Jogador(
+        {
+          x: 440,
+          y: 300,
+        },
+        {
+          x: 0,
+          y: 0,
+        },
+        new Frame(2, 10, config, "parado"),
+        new Controle(),
+        config,
+        ctx
+      );
+
+      const perri = new Perri(
+        {
+          x: 790,
+          y: 300,
+        },
+        {
+          x: 0,
+          y: 0,
+        },
+        config,
+        ctx
+      );
+
+      const cenarios = new Cenario({
+        //por padrao, por conta do primeiro cenario, ventilador é animado
+        objetos: [],
+        max,
+        config,
+        ctx,
+      });
+
+      const gerarPosicaoAleatoria = (lado) => {
+        let x;
+        if (lado == 0) x = Math.floor(Math.random() * 70) + 80;
+        else x = Math.floor(Math.random() * 100) + 800;
+        return { x, y: -140 };
+      };
+
+      function gerarInimigo(sprite) {
+        let height;
+        let width;
+        let lado;
+        switch (sprite) {
+          case 1:
+            width = 80;
+            height = 100;
+            lado = 0;
+            break;
+          case 2:
+            width = 60;
+            height = 80;
+            lado = 0;
+            break;
+          case 3:
+            width = 70;
+            height = 100;
+            lado = 1;
+            break;
+          case 4:
+            width = 60;
+            height = 80;
+            lado = 1;
+            break;
+        }
+        return new Inimigo(
+          gerarPosicaoAleatoria(lado),
+          { x: 0, y: 0 },
+          sprite,
+          width,
+          height,
+          config,
+          ctx
+        );
+      }
+
+      let inimigos = [];
+      let locVidas = [];
+      const vidaImagem = new Image();
+      vidaImagem.src = "./img/inimigos/vidainimigodrop.png";
+
+      function exibirVidas() {
+        locVidas.forEach((lVida) => {
+          ctx.drawImage(
+            vidaImagem,
+            lVida.x,
+            lVida.y,
+            lVida.width,
+            lVida.height
+          );
+        });
+      }
+
+      function gerarInimigos() {
+        for (let i = 1; i < 5; i++) {
+          inimigos.push(gerarInimigo(i));
+        }
+      }
+
+      gerarInimigos();
+
+      function removerTiro(tiro) {
+        atirando = atirando.filter((t) => tiro != t);
+      }
+
+      function removerVidaAnimada(vidaAnimada) {
+        locVidas = locVidas.filter((lV) => lV != vidaAnimada);
+      }
+
+      function removerInimigo(inimigo) {
+        inimigos = inimigos.filter((i) => i != inimigo);
+      }
+
+      function exibirTiros() {
+        ctx.font = "30pt sans-serif";
+        ctx.fillStyle = "black";
+        ctx.fillText(limiteTiros + "/10", canvas.width - 100, 70, 1000, 1000);
+      }
+
+      function quantini() {
+        let teminimigo = inimigos.length > 0 ? true : false;
+
+        if (!teminimigo) {
+          cenarios.aberta = 2;
+          cenarios.podepassar = true;
+        }
+      }
+
+      let limiteTiros = 10;
+
+      window.addEventListener("keydown", (event) => {
+        const code = event.keyCode;
+        if (isDirectionRight(code)) {
+          max.controle.enableD();
+          max.controle.dirX = "d";
+        } else if (isDirectionLeft(code)) {
+          max.controle.enableA();
+          max.controle.dirX = "e";
+        } else if (isDirectionUp(code)) max.controle.enableW();
+        else if (event.key == " " && max.veloci.y == 0 && max.veloci.x == 0) {
+          if (limiteTiros == 0) return;
+          max.frame.changeEstado("atirando");
+          atirando.push(
+            new Tiro({
+              position: {
+                x:
+                  max.controle.dirX == "d"
+                    ? max.position.x + max.width
+                    : max.position.x - 40,
+                y: max.position.y + 60,
+              },
+              veloci: {
+                x: max.controle.dirX == "e" ? -8 : 8,
+              },
+              config,
+              ctx,
+            })
+          );
+
+          limiteTiros--;
+        }
+      });
+
+      //solta tecla
+      window.addEventListener("keyup", (event) => {
+        const code = event.keyCode;
+        if (isDirectionRight(code)) max.controle.disableD();
+        else if (isDirectionLeft(code)) max.controle.disableA();
+        else if (isDirectionUp(code)) max.controle.disableW();
+        else if (event.key == " ") {
+          limiteTiros = 10;
+          if (max.frame.estado != "atirando") return;
+          max.frame.changeEstado("pararAtirar");
+        }
+      });
+
+      //funcao para transicoes falta otimizar
+      //retangulo preto que muda alpha
+      let brilho = 0;
+      let voltando = false;
+      let passacenario = false;
+      function transicao(simnao) {
+        if (!simnao) return;
+        if (config.gameframe % 3 == 0) {
+          if (brilho <= 1 && !voltando) {
+            brilho = brilho + 0.1;
+            if (brilho > 1) voltando = true;
+          } else if (voltando && brilho >= 0) brilho = brilho - 0.1;
+        }
+        ctx.fillStyle = "rgba(0, 0, 0," + brilho + ")";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      const resetaTransicao = () => {
+        setTimeout(() => {
+          brilho = 0;
+          voltando = false;
+          passacenario = false;
+        }, 1000);
+      };
+
+      let dialogo = [];
+      let dialogopessoa = [];
+
+      function animate() {
+        requestAnimationFrame(animate);
+        //define fundo
+
+        cenarios.transicoes(resetaTransicao);
+        cenarios.desenhaobj();
+
+        atirando.forEach((tiro) => {
+          tiro.func(inimigos, removerTiro);
+        });
+
+        exibirVidas();
+        quantini();
+        max.upd(locVidas, removerVidaAnimada);
+        if (cenarios.cenarioatual == 1) {
+          perri.draw();
+
+          inimigos.forEach((ini) => {
+            ini.gravi(max, removerInimigo, locVidas);
+          });
+        }
+
+        transicao(passacenario);
+
+        exibirTiros();
+        dialogos(dialogo, dialogopessoa);
+        config.gameframe++;
+      }
+
+      animate();
+    </script>
+  </body>
+</html>
